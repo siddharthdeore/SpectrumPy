@@ -12,6 +12,7 @@ from pyqtgraph import PlotWidget, plot
 import pyqtgraph as pg
 
 from rtlsdr import RtlSdr
+from rtlsdr.rtlsdr import LibUSBError
 from matplotlib import mlab as mlab
 
 
@@ -24,17 +25,30 @@ class SDRThread(QThread):
     def __init__(self,sample_rate = 2.4e6,center_freq = 100.0e6,freq_correction = 60, gain = 33.8, chunks = 1024):
         QThread.__init__(self)
     
-        self.sdr = RtlSdr()
         # configure device
-        self.sdr.sample_rate = sample_rate  # Hz
-        self.sdr.center_freq = center_freq  # Hz
-        self.sdr.freq_correction = freq_correction   # PPM
-        self.sdr.gain = gain # dB
+        try:
+            self.sdr = RtlSdr()
+        except LibUSBError:
+            print("No Hardware Detected")
+            self.isRunning = False
+            
+        else:
+            self.sdr.sample_rate = sample_rate  # Hz
+            self.sdr.center_freq = center_freq  # Hz
+            self.sdr.freq_correction = freq_correction   # PPM
+            self.sdr.gain = gain # dB
+            self.isRunning = True
+
         self.CHUNK = chunks
     
     def __del__(self):
-        self.wait()
+        if self.isRunning:
+            self.wait()
+    def stop_thread(self):
+        self.isRunning = False
         self.sdr.cancel_read_async()
+        self.sdr.close()
+        
 
     def sdr_tune(self,cf):
         self.sdr.center_freq = cf  # Hz
@@ -44,7 +58,8 @@ class SDRThread(QThread):
 
 
     def run(self):
-        self.sdr.read_samples_async(self.sdr_async_callback,self.CHUNK,None)
+        if self.isRunning:
+            self.sdr.read_samples_async(self.sdr_async_callback,self.CHUNK,None)
 
     def sdr_async_callback(self,iq,ctx):
         power, _ = mlab.psd(iq, NFFT=self.CHUNK, Fs=self.sdr.sample_rate, scale_by_freq=False)
@@ -59,11 +74,14 @@ class MainWindow(QtWidgets.QMainWindow):
         # Variables for UI and SDR
         self.center_freq = 100.0e6
         self.band_width = 2.4e6
-        self.CHUNK = 512
+        self.CHUNK = 1024
         self.PPM = 60
+        self.isRunning = False
+        self.gain= 0.0
+
+        self.aspect_ratio = 1.0
 
         self.isPeaks = False
-        self.counter = 0
         self.tmp = 0
         self.history_length = 128
 
@@ -71,28 +89,12 @@ class MainWindow(QtWidgets.QMainWindow):
         #self.freq = np.arange(-1,2)*self.band_width/2.0 + self.center_freq
         self.freq = np.linspace(-self.band_width/2,self.band_width/2,self.CHUNK) + self.center_freq
         self.data = np.random.rand(self.CHUNK)*0.000001
-
-        self.history = np.empty(shape=(self.history_length, self.CHUNK))
-
-        self.sdrThread = SDRThread(
-            sample_rate = self.band_width,
-            center_freq = self.center_freq,
-            freq_correction = self.PPM,
-            gain = 33.8,
-            chunks = self.CHUNK
-        )
-        self.sdrThread.start()
+        self.history = np.zeros(shape=(self.history_length, self.CHUNK))
 
         self.waterfallView.plot()
-
         self.waterfallView.setLabel("bottom", "Frequency", units="Hz")
         self.waterfallView.setLabel("left", "Time")
         self.waterfallView.setLimits(xMin=self.freq[0],xMax=self.freq[-1],yMin=-self.history_length,yMax=0)
-
-        #self.waterfallView.setYRange(self.history_length, 0)
-        #self.waterfallView.setLimits(yMax=self.history_length,yMin=0)
-        #self.waterfallView.showButtons()
-        
         # We need to construct image for waterfall
         self.img_waterfall = pg.ImageItem()
         self.waterfallView.addItem(self.img_waterfall)
@@ -114,9 +116,7 @@ class MainWindow(QtWidgets.QMainWindow):
                                             autoRange=False)
 
         self.curve.setPen((255,255,195,90), width=1)
-
-        self.curvePeaks = self.spectrumView.plot(self.freq,self.freq*0, pen=None, symbol='d',symbolBrush=(215,155,255,200))
-
+        self.curvePeaks = self.spectrumView.plot(self.freq,self.freq*1.0e-5, pen=None, symbol='d',symbolBrush=(215,155,255,200))
         self.spectrumView.setLabel("left", "Power", units="dB")
         self.spectrumView.setLimits(yMin=-4,yMax=-1)
         self.spectrumView.setLogMode(x=None, y=True)
@@ -133,22 +133,11 @@ class MainWindow(QtWidgets.QMainWindow):
 
         self.spectrumView.addItem(self.vLine, ignoreBounds=True)
         self.spectrumView.addItem(self.hLine, ignoreBounds=True)
-
         self.vLine2 = pg.InfiniteLine(angle=90, movable=False, pen='#aaaabb')
         self.vLine2.setZValue(1000)
-
         self.waterfallView.addItem(self.vLine2,ignoreBounds=True)
-
         # Link ranges and focus of spectrum and waterfall
         self.spectrumView.setXLink(self.waterfallView)
-        self.sdrThread.signal.connect(self.updateData)
-
-        # User interactions on plot
-        self.mouseProxy = pg.SignalProxy(self.spectrumView.scene().sigMouseMoved,
-                                         rateLimit=60,
-                                         slot=self.mouse_moved)
-        self.spectrumView.scene().sigMouseClicked.connect(self.mouse_clicked)
-        
         # Gradient color level selector
         self.histogram_layout = pg.GraphicsLayoutWidget()
         self.verticalLayout.addWidget(self.histogram_layout)
@@ -167,23 +156,78 @@ class MainWindow(QtWidgets.QMainWindow):
 
         #
         self.spinBoxFrequency.setValue(self.center_freq)
-        self.spinBoxFrequency.valueChanged.connect(self.sdrSetFrequency)
-        
-        # GUI Timer Threads for plots 
-        self.render_timer = QTimer()
-        self.render_timer.setInterval(50)
-        self.render_timer.timeout.connect(self.render)
-        self.render_timer.start()
-
-        # GUI Timer Threads for waterfall rolling data
-        self.data_roll_timer = QTimer()
-        self.data_roll_timer.setInterval(50)
-        self.data_roll_timer.timeout.connect(self.rollData)
-        self.data_roll_timer.start()
+        self.spinBoxPPM.setValue(self.PPM)
 
         # averaging filter for psd
         self.doubleSpinBoxAlfa.setValue(0.9)
         self.comboBoxGain.currentIndex=21
+        self.pushButtonConnect.clicked.connect(self.initThread)
+    def reset_plots(self):
+        self.PPM = self.spinBoxPPM.value()
+        self.gain = float(self.comboBoxGain.currentText())
+        self.CHUNK = int(self.comboBoxNFFT.currentText())
+        self.freq = np.linspace(-self.band_width/2,self.band_width/2,self.CHUNK) + self.center_freq
+        self.data = np.random.rand(self.CHUNK)*0.000001
+        self.history = np.zeros(shape=(self.history_length, self.CHUNK))
+
+        self.spectrumView.setLimits(yMin=-4,yMax=-1)
+        self.waterfallView.setLimits(xMin=self.freq[0],xMax=self.freq[-1],yMin=-self.history_length,yMax=0)
+
+        new_ratio =(self.freq[-1] - self.freq[0]) / self.CHUNK
+
+        self.img_waterfall.scale(new_ratio/self.aspect_ratio, 1)
+        self.aspect_ratio = (self.freq[-1] - self.freq[0]) / self.CHUNK
+
+        self.histogram.setImageItem(self.img_waterfall)
+
+
+    
+    def initThread(self):
+        if not self.isRunning:
+            self.reset_plots()
+
+            self.sdrThread = SDRThread(
+                sample_rate = self.band_width,
+                center_freq = self.center_freq,
+                freq_correction = self.PPM,
+                gain = self.gain,
+                chunks = self.CHUNK
+            )
+            self.isRunning = True
+        else:
+            self.sdrThread.stop_thread()
+            self.sdrThread.quit()
+            self.isRunning=False
+            self.pushButtonConnect.setText('Connect')
+
+
+        if self.isRunning:
+            self.pushButtonConnect.setText('Stop')
+            self.sdrThread.start()
+            self.sdrThread.signal.connect(self.updateData)
+
+            # User interactions on plot
+            self.mouseProxy = pg.SignalProxy(self.spectrumView.scene().sigMouseMoved,
+                                            rateLimit=60,
+                                            slot=self.mouse_moved)
+            self.spectrumView.scene().sigMouseClicked.connect(self.mouse_clicked)
+            
+            self.spinBoxFrequency.valueChanged.connect(self.sdrSetFrequency)        
+            # GUI Timer Threads for plots 
+            self.render_timer = QTimer()
+            self.render_timer.setInterval(50)
+            self.render_timer.timeout.connect(self.render)
+            self.render_timer.start()
+
+            # GUI Timer Threads for waterfall rolling data
+            self.data_roll_timer = QTimer()
+            self.data_roll_timer.setInterval(50)
+            self.data_roll_timer.timeout.connect(self.rollData)
+            self.data_roll_timer.start()
+        else:
+            self.isRunning = False
+
+
 
     def updateData(self,data):
         self.data = data*(1.0-self.doubleSpinBoxAlfa.value())+self.data*(self.doubleSpinBoxAlfa.value())
@@ -199,7 +243,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def render(self):
         try:
-            self.counter += 1
+            #self.counter += 1
             self.curve.setData(self.freq,self.data,autoLevels=True, autoRange=False)
             idx, _ = find_peaks(self.data,distance=50)
             self.curvePeaks.setData(self.freq[idx],self.data[idx])
@@ -207,23 +251,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
 
             # scale waterfall image only once
-            if(self.counter==1):
-                    self.img_waterfall.scale((self.freq[-1] - self.freq[0]) / self.CHUNK, 1)
-                    self.histogram.setImageItem(self.img_waterfall)
+            #if(self.counter==1):
+            #        self.img_waterfall.scale((self.freq[-1] - self.freq[0]) / self.CHUNK, 1)
+            #        self.histogram.setImageItem(self.img_waterfall)
 
-            self.img_waterfall.setImage(self.history.T,levels=self.histogram.getLevels())                
+            self.img_waterfall.setImage(self.history.T,levels=self.histogram.getLevels())
             self.img_waterfall.setPos(self.freq[0],-self.history_length)
 
         except Exception as e:
             raise(e)
 
     def sdrSetFrequency(self):
-        self.center_freq = self.spinBoxFrequency.value()
-        self.freq = np.linspace(-self.band_width/2,self.band_width/2,self.CHUNK) + self.center_freq
-        self.spectrumView.setLimits(xMin=self.freq[0],xMax=self.freq[-1])
-        self.waterfallView.setLimits(xMin=self.freq[0],xMax=self.freq[-1])
-        
-        self.sdrThread.sdr_tune(self.center_freq)
+        if self.isRunning:
+            self.center_freq = self.spinBoxFrequency.value()
+            self.freq = np.linspace(-self.band_width/2,self.band_width/2,self.CHUNK) + self.center_freq
+            self.spectrumView.setLimits(xMin=self.freq[0],xMax=self.freq[-1])
+            self.waterfallView.setLimits(xMin=self.freq[0],xMax=self.freq[-1])
+            
+            self.sdrThread.sdr_tune(self.center_freq)
 
     def mouse_clicked(self,evt):
         self.center_freq=round(self.tmp/10e3)*10e3
