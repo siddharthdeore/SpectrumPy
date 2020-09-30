@@ -14,17 +14,10 @@
    <string>RTL SDR Spectrum Analyzer</string>
   </property>
   <widget class="QWidget" name="centralwidget">
-   <layout class="QGridLayout" name="gridLayout" columnstretch="6,2">
+   <layout class="QGridLayout" name="gridLayout" columnstretch="6,0">
     <property name="sizeConstraint">
      <enum>QLayout::SetDefaultConstraint</enum>
     </property>
-    <item row="2" column="0">
-     <widget class="QLabel" name="lblFreq">
-      <property name="text">
-       <string>100.0Mhz</string>
-      </property>
-     </widget>
-    </item>
     <item row="1" column="0">
      <widget class="QSplitter" name="splitter">
       <property name="orientation">
@@ -56,7 +49,7 @@
       </property>
       <widget class="QWidget" name="page_2">
        <attribute name="label">
-        <string>Hardware</string>
+        <string>Tuner</string>
        </attribute>
        <widget class="QWidget" name="">
         <property name="geometry">
@@ -64,7 +57,7 @@
           <x>10</x>
           <y>10</y>
           <width>231</width>
-          <height>91</height>
+          <height>119</height>
          </rect>
         </property>
         <layout class="QFormLayout" name="formLayout_3">
@@ -313,97 +306,86 @@
            </property>
           </widget>
          </item>
+         <item row="3" column="1">
+          <widget class="QPushButton" name="pushButtonConnect">
+           <property name="text">
+            <string>Connect</string>
+           </property>
+          </widget>
+         </item>
         </layout>
        </widget>
-       <widget class="QPushButton" name="pushButtonConnect">
+       <widget class="Line" name="line">
         <property name="geometry">
          <rect>
-          <x>150</x>
-          <y>110</y>
-          <width>93</width>
-          <height>28</height>
+          <x>10</x>
+          <y>140</y>
+          <width>231</width>
+          <height>16</height>
          </rect>
         </property>
-        <property name="text">
-         <string>Connect</string>
+        <property name="orientation">
+         <enum>Qt::Horizontal</enum>
         </property>
        </widget>
-      </widget>
-      <widget class="QWidget" name="toolTune">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>255</width>
-         <height>392</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Tuner</string>
-       </attribute>
-       <layout class="QFormLayout" name="formLayout">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label_2">
-          <property name="text">
-           <string>Center Frequency (Hz)</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QSpinBox" name="spinBoxFrequency">
-          <property name="minimum">
-           <number>20000000</number>
-          </property>
-          <property name="maximum">
-           <number>2000000000</number>
-          </property>
-          <property name="singleStep">
-           <number>100000</number>
-          </property>
-         </widget>
-        </item>
-       </layout>
-      </widget>
-      <widget class="QWidget" name="page">
-       <property name="geometry">
-        <rect>
-         <x>0</x>
-         <y>0</y>
-         <width>255</width>
-         <height>392</height>
-        </rect>
-       </property>
-       <attribute name="label">
-        <string>Spectrum</string>
-       </attribute>
-       <layout class="QFormLayout" name="formLayout_2">
-        <item row="0" column="0">
-         <widget class="QLabel" name="label">
-          <property name="text">
-           <string>Avaraging</string>
-          </property>
-         </widget>
-        </item>
-        <item row="0" column="1">
-         <widget class="QDoubleSpinBox" name="doubleSpinBoxAlfa">
-          <property name="decimals">
-           <number>3</number>
-          </property>
-          <property name="maximum">
-           <double>1.000000000000000</double>
-          </property>
-          <property name="singleStep">
-           <double>0.001000000000000</double>
-          </property>
-          <property name="stepType">
-           <enum>QAbstractSpinBox::DefaultStepType</enum>
-          </property>
-          <property name="value">
-           <double>0.000000000000000</double>
-          </property>
-         </widget>
-        </item>
-       </layout>
+       <widget class="QWidget" name="">
+        <property name="geometry">
+         <rect>
+          <x>10</x>
+          <y>160</y>
+          <width>234</width>
+          <height>57</height>
+         </rect>
+        </property>
+        <layout class="QFormLayout" name="formLayout">
+         <item row="0" column="0">
+          <widget class="QLabel" name="label_2">
+           <property name="text">
+            <string>Center Frequency (Hz)</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="QSpinBox" name="spinBoxFrequency">
+           <property name="minimum">
+            <number>20000000</number>
+           </property>
+           <property name="maximum">
+            <number>2000000000</number>
+           </property>
+           <property name="singleStep">
+            <number>100000</number>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="0">
+          <widget class="QLabel" name="label">
+           <property name="text">
+            <string>Avaraging</string>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="QDoubleSpinBox" name="doubleSpinBoxAlfa">
+           <property name="decimals">
+            <number>3</number>
+           </property>
+           <property name="maximum">
+            <double>1.000000000000000</double>
+           </property>
+           <property name="singleStep">
+            <double>0.001000000000000</double>
+           </property>
+           <property name="stepType">
+            <enum>QAbstractSpinBox::DefaultStepType</enum>
+           </property>
+           <property name="value">
+            <double>0.000000000000000</double>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
       </widget>
       <widget class="QWidget" name="toolBoxLevel">
        <property name="geometry">
@@ -411,7 +393,7 @@
          <x>0</x>
          <y>0</y>
          <width>255</width>
-         <height>392</height>
+         <height>454</height>
         </rect>
        </property>
        <attribute name="label">
@@ -435,6 +417,13 @@
         </item>
        </layout>
       </widget>
+     </widget>
+    </item>
+    <item row="2" column="1">
+     <widget class="QLabel" name="lblFreq">
+      <property name="text">
+       <string>100.0Mhz</string>
+      </property>
      </widget>
     </item>
    </layout>
