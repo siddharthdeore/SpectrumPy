@@ -5,7 +5,7 @@ Yet another python based RTL SDR Spectrum Analyzer
 ![Screenshot ](screenshot.png)
 
 ## TODO
-- Beter Management of I/O buffer
+- Better Management of I/O buffer
 - Documentation
 - Setuptools
 - unittests
