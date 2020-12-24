@@ -1,4 +1,4 @@
-# RTL SDR Based Spectrum Analyzer
+# Spectrum Analyzer RTL - SDR
 
 Yet another python based RTL SDR Spectrum Analyzer
 
