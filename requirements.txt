@@ -1,0 +1,7 @@
+PyQt5
+numpy 
+scipy
+matplotlib 
+PyQt5 
+pyqtgraph 
+rtlsdr 
